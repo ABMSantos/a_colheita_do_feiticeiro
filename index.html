@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Maguinho Colhe Maçãs</title>
+  <style>
+    body { margin: 0; }
+    canvas { display: block; margin: auto; }
+  </style>
+</head>
+<body>
+  <script type="module">
+    import kaboom from "https://unpkg.com/kaboom/dist/kaboom.mjs";
+
+    // Inicializa o Kaboom
+    kaboom({
+      background: [120, 200, 255], // cor de fundo azul clarinho
+    });
+
+    // Adiciona o maguinho (por enquanto um quadrado)
+    const maguinho = add([
+      rect(32, 32),
+      color(100, 50, 255),
+      pos(120, 120),
+      area(),
+      "player"
+    ]);
+
+    // Adiciona uma maçã
+    const apple = add([
+      rect(16, 16),
+      color(255, 0, 0),
+      pos(rand(0, width()), rand(0, height())),
+      area(),
+      "apple"
+    ]);
+
+    // Movimento com setas
+    const speed = 200;
+    onKeyDown("left", () => maguinho.move(-speed, 0));
+    onKeyDown("right", () => maguinho.move(speed, 0));
+    onKeyDown("up", () => maguinho.move(0, -speed));
+    onKeyDown("down", () => maguinho.move(0, speed));
+
+    // Colisão com maçã
+    maguinho.onCollide("apple", (a) => {
+      destroy(a);
+      add([
+        rect(16, 16),
+        color(255, 0, 0),
+        pos(rand(0, width()), rand(0, height())),
+        area(),
+        "apple"
+      ]);
+    });
+  </script>
+</body>
+</html>
