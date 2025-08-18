@@ -37,13 +37,39 @@ let shootInterval = 1.5;
 let fireballSpeed = 200;
 
 // -----------------
-// Função para iniciar o jogo
+// Função Game Over
+// -----------------
+function gameOverScreen(){
+  add([rect(width(),height()), color(0,0,0,0.8), pos(0,0), layer("ui")]);
+  add([text("GAME OVER",{size:48}), pos(width()/2, height()/3), origin("center"), layer("ui")]);
+  add([text("Pressione ENTER para jogar novamente",{size:24}), pos(width()/2, height()/2), origin("center"), layer("ui")]);
+  onKeyPress("enter", ()=>{
+    destroyAll();
+    score=0; lives=3; shootInterval=1.5; fireballSpeed=200;
+    startGame();
+  });
+}
+
+// -----------------
+// Tela Vitória
+// -----------------
+function victoryScreen(){
+  add([rect(width(),height()), color(0,0,0,0.8), pos(0,0), layer("ui")]);
+  add([text("VOCÊ VENCEU!",{size:48}), pos(width()/2,height()/3), origin("center"), layer("ui")]);
+  add([text("Pressione ENTER para jogar novamente",{size:24}), pos(width()/2,height()/2), origin("center"), layer("ui")]);
+  onKeyPress("enter", ()=>{
+    destroyAll();
+    score=0; lives=3; shootInterval=1.5; fireballSpeed=200;
+    startGame();
+  });
+}
+
+// -----------------
+// Função principal
 // -----------------
 function startGame() {
-  // Fundo
   add([sprite("fundo"), scale(1), pos(0,0)]);
 
-  // Pontuação e Vidas
   scoreLabel = add([text("Pontos: "+score), pos(12,12), layer("ui")]);
   livesLabel = add([text("Vidas: "+lives), pos(12,36), layer("ui")]);
 
@@ -72,7 +98,7 @@ function startGame() {
     if(score>=20){ destroyAll(); victoryScreen(); }
   });
 
-  // Bruxo inimigo
+  // Bruxo
   bruxo = add([sprite("bruxo"), pos(width()-100,50), area(), "bruxo"]);
   let dir=1;
   bruxo.onUpdate(()=>{
@@ -98,60 +124,33 @@ function startGame() {
 }
 
 // -----------------
-// Tela Inicial
+// Tela Inicial com preload
 // -----------------
 function startScreen(){
-  add([sprite("fundo"), scale(1), pos(0,0)]);
-  const title = add([text("A Colheita do Feiticeiro",{size:32}), pos(width()/2, height()/3), origin("center")]);
-  const startBtn = add([text("Pressione ENTER para começar",{size:24}), pos(width()/2, height()/2), origin("center")]);
-  onKeyPress("enter", ()=>{
-    destroy(title);
-    destroy(startBtn);
-    startGame();
+  const preloadText = add([text("Carregando...",{size:32}), pos(width()/2,height()/2), origin("center")]);
+
+  Promise.all([
+    loadSprite("bruxo","https://raw.githubusercontent.com/ABMSantos/a_colheita_do_feiticeiro/main/32189254-pixel-arte-ilustracao-capa-pixelizada-magico-capa-magico-mago-capa-icone-pixelizada-para-a-pixel-arte-jogos-e-icone-para-local-na-rede-internet-e-video-jogo-velho-escola-retro-removebg-.png"),
+    loadSprite("maguinho","https://raw.githubusercontent.com/ABMSantos/a_colheita_do_feiticeiro/main/guillermo-ruiz-flores-mago-pixel-removebg-preview.png"),
+    loadSprite("fundo","https://raw.githubusercontent.com/ABMSantos/a_colheita_do_feiticeiro/main/fundo.png"),
+    loadSprite("fireball","https://raw.githubusercontent.com/ABMSantos/a_colheita_do_feiticeiro/main/pixel-fireball-fireball-pixel-art-115631306101ozjjztwry%20(1).png"),
+    loadSprite("apple","https://raw.githubusercontent.com/ABMSantos/a_colheita_do_feiticeiro/main/pngtree-pixel-game-fruit-red-apple-png-image_3287470-removebg-preview.png")
+  ]).then(()=>{
+    destroy(preloadText);
+    const title = add([text("A Colheita do Feiticeiro",{size:32}), pos(width()/2, height()/3), origin("center")]);
+    const startBtn = add([text("Pressione ENTER para começar",{size:24}), pos(width()/2, height()/2), origin("center")]);
+    onKeyPress("enter", ()=>{
+      destroy(title);
+      destroy(startBtn);
+      startGame();
+    });
   });
 }
 
 // -----------------
-// Tela Game Over
+// Começa com tela inicial
 // -----------------
-function gameOverScreen(){
-  add([rect(width(),height()), color(0,0,0,0.8), pos(0,0), layer("ui")]);
-  add([text("GAME OVER",{size:48}), pos(width()/2, height()/3), origin("center"), layer("ui")]);
-  add([text("Pressione ENTER para jogar novamente",{size:24}), pos(width()/2, height()/2), origin("center"), layer("ui")]);
-  onKeyPress("enter", ()=>{
-    destroyAll();
-    score=0; lives=3; shootInterval=1.5; fireballSpeed=200;
-    startGame();
-  });
-}
-
-// -----------------
-// Tela Vitória
-// -----------------
-function victoryScreen(){
-  add([rect(width(),height()), color(0,0,0,0.8), pos(0,0), layer("ui")]);
-  add([text("VOCÊ VENCEU!",{size:48}), pos(width()/2,height()/3), origin("center"), layer("ui")]);
-  add([text("Pressione ENTER para jogar novamente",{size:24}), pos(width()/2,height()/2), origin("center"), layer("ui")]);
-  onKeyPress("enter", ()=>{
-    destroyAll();
-    score=0; lives=3; shootInterval=1.5; fireballSpeed=200;
-    startGame();
-  });
-}
-
-// -----------------
-// Carregar todos os sprites primeiro e só então iniciar o jogo
-// -----------------
-Promise.all([
-  loadSprite("bruxo","https://raw.githubusercontent.com/ABMSantos/a_colheita_do_feiticeiro/main/32189254-pixel-arte-ilustracao-capa-pixelizada-magico-capa-magico-mago-capa-icone-pixelizada-para-a-pixel-arte-jogos-e-icone-para-local-na-rede-internet-e-video-jogo-velho-escola-retro-removebg-.png"),
-  loadSprite("maguinho","https://raw.githubusercontent.com/ABMSantos/a_colheita_do_feiticeiro/main/guillermo-ruiz-flores-mago-pixel-removebg-preview.png"),
-  loadSprite("fundo","https://raw.githubusercontent.com/ABMSantos/a_colheita_do_feiticeiro/main/fundo.png"),
-  loadSprite("fireball","https://raw.githubusercontent.com/ABMSantos/a_colheita_do_feiticeiro/main/pixel-fireball-fireball-pixel-art-115631306101ozjjztwry%20(1).png"),
-  loadSprite("apple","https://raw.githubusercontent.com/ABMSantos/a_colheita_do_feiticeiro/main/pngtree-pixel-game-fruit-red-apple-png-image_3287470-removebg-preview.png")
-]).then(()=>{
-  // Só inicia a tela inicial depois de tudo carregado
-  startScreen();
-});
+startScreen();
 
 </script>
 </body>
