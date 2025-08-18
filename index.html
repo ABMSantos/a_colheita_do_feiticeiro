@@ -1,188 +1,201 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>A Colheita do Feiticeiro</title>
-<style>
-  body { margin:0; background:#78c8ff; display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif; }
-  canvas { display:block; margin:auto; }
-</style>
+  <meta charset="UTF-8">
+  <title>A Colheita do Feiticeiro</title>
+  <style>
+    body {
+      margin: 0;
+      background: #78c8ff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: sans-serif;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+    }
+  </style>
 </head>
 <body>
-<script type="module">
-import kaboom from "https://unpkg.com/kaboom/dist/kaboom.mjs";
+  <script type="module">
+    import kaboom from "https://unpkg.com/kaboom/dist/kaboom.mjs";
 
-// -----------------
-// Inicializa Kaboom
-// -----------------
-kaboom({
-  background: [120,200,255],
-  canvas:document.querySelector("canvas")
-});
-
-// -----------------
-// Carregar sprites e sons
-// -----------------
-loadSprite("maguinho_up", "https://i.imgur.com/5rX3HfT.png", {sliceX:4}); // andando cima
-loadSprite("maguinho_down", "https://i.imgur.com/5rX3HfT.png", {sliceX:4}); // andando baixo
-loadSprite("maguinho_left", "https://i.imgur.com/5rX3HfT.png", {sliceX:4}); // esquerda
-loadSprite("maguinho_right", "https://i.imgur.com/5rX3HfT.png", {sliceX:4}); // direita
-loadSprite("apple","https://i.imgur.com/Z6xkR9Z.png");
-loadSprite("bruxo","https://i.imgur.com/q2aLz9A.png");
-loadSprite("feitico","https://i.imgur.com/eb6r3o5.png");
-
-loadSound("coletar","https://www.soundjay.com/button/sounds/button-3.mp3");
-loadSound("hit","https://www.soundjay.com/button/sounds/button-10.mp3");
-loadSound("attack","https://www.soundjay.com/button/sounds/button-16.mp3");
-
-// -----------------
-// Variáveis globais
-// -----------------
-let score = 0;
-let lives = 3;
-let level = 1;
-let maguinho;
-let scoreLabel, livesLabel;
-let bruxo;
-let feitiços = [];
-let shootInterval = 1.5;
-let feitiçoSpeed = 200;
-
-// -----------------
-// Tela inicial
-// -----------------
-function startScreen() {
-  const title = add([text("A Colheita do Feiticeiro",{size:32}), pos(width()/2,height()/3), origin("center")]);
-  const startBtn = add([text("Pressione ENTER para começar",{size:24}), pos(width()/2,height()/2), origin("center"), "startBtn"]);
-
-  onKeyPress("enter",()=>{
-    destroy(title);
-    destroy(startBtn);
-    startGame();
-  });
-}
-
-// -----------------
-// Tela Game Over
-// -----------------
-function gameOverScreen() {
-  add([rect(width(),height()), color(0,0,0), pos(0,0), layer("ui")]);
-  add([text("GAME OVER",{size:48}), pos(width()/2,height()/3), origin("center"), layer("ui")]);
-  add([text("Pressione ENTER para jogar novamente",{size:24}), pos(width()/2,height()/2), origin("center"), layer("ui")]);
-
-  onKeyPress("enter",()=>{
-    destroyAll();
-    score = 0;
-    lives = 3;
-    level =1;
-    shootInterval =1.5;
-    feitiçoSpeed =200;
-    startGame();
-  });
-}
-
-// -----------------
-// Tela Vitória
-// -----------------
-function victoryScreen() {
-  add([rect(width(),height()), color(0,0,0), pos(0,0), layer("ui")]);
-  add([text("VOCÊ VENCEU!",{size:48}), pos(width()/2,height()/3), origin("center"), layer("ui")]);
-  add([text("Pressione ENTER para jogar novamente",{size:24}), pos(width()/2,height()/2), origin("center"), layer("ui")]);
-
-  onKeyPress("enter",()=>{
-    destroyAll();
-    score = 0;
-    lives = 3;
-    level =1;
-    shootInterval =1.5;
-    feitiçoSpeed =200;
-    startGame();
-  });
-}
-
-// -----------------
-// Função principal
-// -----------------
-function startGame() {
-  // Pontuação e vidas
-  scoreLabel = add([text("Pontos:"+score), pos(12,12), layer("ui")]);
-  livesLabel = add([text("Vidas:"+lives), pos(12,36), layer("ui")]);
-
-  // Maguinho animado
-  maguinho = add([sprite("maguinho_down"), pos(120,120), area(), "player", {speed:200}]);
-  let dirX=0; let dirY=0;
-
-  function updateSprite(){
-    if(dirX>0) maguinho.use(sprite("maguinho_right"));
-    else if(dirX<0) maguinho.use(sprite("maguinho_left"));
-    else if(dirY>0) maguinho.use(sprite("maguinho_down"));
-    else if(dirY<0) maguinho.use(sprite("maguinho_up"));
-  }
-
-  onKeyDown("left",()=>{dirX=-1; dirY=0; updateSprite();});
-  onKeyDown("right",()=>{dirX=1; dirY=0; updateSprite();});
-  onKeyDown("up",()=>{dirY=-1; dirX=0; updateSprite();});
-  onKeyDown("down",()=>{dirY=1; dirX=0; updateSprite();});
-  onKeyRelease(["left","right","up","down"],()=>{dirX=0;dirY=0;});
-
-  maguinho.onUpdate(()=>{maguinho.move(dirX*maguinho.speed, dirY*maguinho.speed);});
-
-  // Spawn de maçã
-  function spawnApple(){add([sprite("apple"), pos(rand(0,width()),rand(0,height())), area(), "apple"]); }
-  spawnApple();
-
-  maguinho.onCollide("apple",(a)=>{
-    destroy(a);
-    spawnApple();
-    score++;
-    scoreLabel.text="Pontos:"+score;
-    play("coletar");
-
-    // aumenta dificuldade e nível
-    if(score % 5 ===0){
-      level++;
-      if(shootInterval>0.5) shootInterval-=0.2;
-      feitiçoSpeed+=50;
-    }
-
-    // Vitória após 20 pontos
-    if(score>=20){
-      destroyAll();
-      victoryScreen();
-    }
-  });
-
-  // Bruxo inimigo
-  bruxo=add([sprite("bruxo"), pos(width()-100,50), area(),"bruxo"]);
-  let dir=1;
-  bruxo.onUpdate(()=>{bruxo.move(0,dir*50); if(bruxo.pos.y>height()-50||bruxo.pos.y<50) dir*=-1;});
-
-  // Disparo de feitiços
-  function shoot(){
-    const f=add([sprite("feitico"), pos(bruxo.pos.x, bruxo.pos.y), area(),"feitico"]);
-    feitiços.push(f);
-    play("attack");
-    f.onUpdate(()=>{
-      f.move(-feitiçoSpeed,0);
-      if(f.pos.x<0) destroy(f);
+    kaboom({
+      background: [120, 200, 255],
     });
-  }
-  loop(shootInterval,shoot);
 
-  // Colisão maguinho com feitiço
-  maguinho.onCollide("feitico",(f)=>{
-    destroy(f);
-    lives--;
-    livesLabel.text="Vidas:"+lives;
-    play("hit");
-    if(lives<=0){ destroyAll(); gameOverScreen(); }
-  });
-}
+    // -----------------
+    // Carregar Sprites
+    // -----------------
+    loadSprite("maguinho", "https://i.imgur.com/5rX3HfT.png", { sliceX: 4, sliceY: 4 });
+    loadSprite("feitico", "https://i.imgur.com/eb6r3o5.png", { sliceX: 4, sliceY: 1 });
+    loadSprite("apple", "https://i.imgur.com/Z6xkR9Z.png");
+    loadSprite("bruxo", "https://i.imgur.com/9gFq8Qk.png", { sliceX: 4, sliceY: 4 });
 
-// -----------------
-// Começa com tela inicial
-// -----------------
-startScreen();
-</script>
+    // -----------------
+    // Carregar Sons
+    // -----------------
+    loadSound("coletar", "https://www.soundjay.com/button/sounds/button-3.mp3");
+    loadSound("hit", "https://www.soundjay.com/button/sounds/button-10.mp3");
+    loadSound("attack", "https://www.soundjay.com/button/sounds/button-16.mp3");
+
+    // -----------------
+    // Variáveis Globais
+    // -----------------
+    let score = 0;
+    let lives = 3;
+    let level = 1;
+    let shootInterval = 1.5;
+    let feitiçoSpeed = 200;
+    let maguinho;
+    let scoreLabel, livesLabel;
+    let bruxo;
+    let feitiços = [];
+
+    // -----------------
+    // Tela Inicial
+    // -----------------
+    function startScreen() {
+      const title = add([text("A Colheita do Feiticeiro", { size: 32 }), pos(width() / 2, height() / 3), origin("center")]);
+      const startBtn = add([text("Pressione ENTER para começar", { size: 24 }), pos(width() / 2, height() / 2), origin("center"), "startBtn"]);
+
+      onKeyPress("enter", () => {
+        destroy(title);
+        destroy(startBtn);
+        startGame();
+      });
+    }
+
+    // -----------------
+    // Tela Game Over
+    // -----------------
+    function gameOverScreen() {
+      add([rect(width(), height()), color(0, 0, 0), pos(0, 0), layer("ui")]);
+      add([text("GAME OVER", { size: 48 }), pos(width() / 2, height() / 3), origin("center"), layer("ui")]);
+      add([text("Pressione ENTER para jogar novamente", { size: 24 }), pos(width() / 2, height() / 2), origin("center"), layer("ui")]);
+
+      onKeyPress("enter", () => {
+        destroyAll();
+        score = 0;
+        lives = 3;
+        level = 1;
+        shootInterval = 1.5;
+        feitiçoSpeed = 200;
+        startGame();
+      });
+    }
+
+    // -----------------
+    // Tela Vitória
+    // -----------------
+    function victoryScreen() {
+      add([rect(width(), height()), color(0, 0, 0), pos(0, 0), layer("ui")]);
+      add([text("VOCÊ VENCEU!", { size: 48 }), pos(width() / 2, height() / 3), origin("center"), layer("ui")]);
+      add([text("Pressione ENTER para jogar novamente", { size: 24 }), pos(width() / 2, height() / 2), origin("center"), layer("ui")]);
+
+      onKeyPress("enter", () => {
+        destroyAll();
+        score = 0;
+        lives = 3;
+        level = 1;
+        shootInterval = 1.5;
+        feitiçoSpeed = 200;
+        startGame();
+      });
+    }
+
+    // -----------------
+    // Função Principal
+    // -----------------
+    function startGame() {
+      // Pontuação e Vidas
+      scoreLabel = add([text("Pontos:" + score), pos(12, 12), layer("ui")]);
+      livesLabel = add([text("Vidas:" + lives), pos(12, 36), layer("ui")]);
+
+      // Maguinho Animado
+      maguinho = add([sprite("maguinho"), pos(120, 120), area(), "player", { speed: 200 }]);
+      let dirX = 0;
+      let dirY = 0;
+
+      function updateSprite() {
+        if (dirX > 0) maguinho.use(sprite("maguinho"));
+        else if (dirX < 0) maguinho.use(sprite("maguinho"));
+        else if (dirY > 0) maguinho.use(sprite("maguinho"));
+        else if (dirY < 0) maguinho.use(sprite("maguinho"));
+      }
+
+      onKeyDown("left", () => { dirX = -1; dirY = 0; updateSprite(); });
+      onKeyDown("right", () => { dirX = 1; dirY = 0; updateSprite(); });
+      onKeyDown("up", () => { dirY = -1; dirX = 0; updateSprite(); });
+      onKeyDown("down", () => { dirY = 1; dirX = 0; updateSprite(); });
+      onKeyRelease(["left", "right", "up", "down"], () => { dirX = 0; dirY = 0; });
+
+      maguinho.onUpdate(() => { maguinho.move(dirX * maguinho.speed, dirY * maguinho.speed); });
+
+      // Spawn de Maçã
+      function spawnApple() {
+        add([sprite("apple"), pos(rand(0, width()), rand(0, height())), area(), "apple"]);
+      }
+      spawnApple();
+
+      maguinho.onCollide("apple", (a) => {
+        destroy(a);
+        spawnApple();
+        score++;
+        scoreLabel.text = "Pontos:" + score;
+        play("coletar");
+
+        // Aumenta Dificuldade e Nível
+        if (score % 5 === 0) {
+          level++;
+          if (shootInterval > 0.5) shootInterval -= 0.2;
+          feitiçoSpeed += 50;
+        }
+
+        // Vitória após 20 pontos
+        if (score >= 20) {
+          destroyAll();
+          victoryScreen();
+        }
+      });
+
+      // Bruxo Inimigo
+      bruxo = add([sprite("bruxo"), pos(width() - 100, 50), area(), "bruxo"]);
+      let dir = 1;
+      bruxo.onUpdate(() => {
+        bruxo.move(0, dir * 50);
+        if (bruxo.pos.y > height() - 50 || bruxo.pos.y < 50) dir *= -1;
+      });
+
+      // Disparo de Feitiços
+      function shoot() {
+        const f = add([sprite("feitico"), pos(bruxo.pos.x, bruxo.pos.y), area(), "feitico"]);
+        feitiços.push(f);
+        play("attack");
+        f.onUpdate(() => {
+          f.move(-feitiçoSpeed, 0);
+          if (f.pos.x < 0) destroy(f);
+        });
+      }
+      loop(shootInterval, shoot);
+
+      // Colisão Maguinho com Feitiço
+      maguinho.onCollide("feitico", (f) => {
+        destroy(f);
+        lives--;
+        livesLabel.text = "Vidas:" + lives;
+        play("hit");
+        if (lives <= 0) { destroyAll(); gameOverScreen(); }
+      });
+    }
+
+    // -----------------
+    // Começa com Tela Inicial
+    // -----------------
+    startScreen();
+  </script>
 </body>
 </html>
