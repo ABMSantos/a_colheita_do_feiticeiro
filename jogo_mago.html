@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>A Colheita do Feiticeiro</title>
+<style>
+  body { margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#000; }
+  canvas { display:block; margin:auto; }
+</style>
+</head>
+<body>
+<script type="module">
+import kaboom from "https://unpkg.com/kaboom/dist/kaboom.mjs";
+
+// Inicializa Kaboom
+kaboom({ width: 800, height: 600, background: [40,100,40] });
+
+// Sons
+loadSound("coletar", "./assets/coletar.mp3");
+loadSound("hit", "./assets/hit.mp3");
+loadSound("attack", "./assets/attack.mp3");
+loadSound("theme", "./assets/theme.mp3");
+
+// Sprites
+loadSprite("mago", "./assets/mago.png");
+loadSprite("bruxo", "./assets/bruxo.png");
+loadSprite("maca", "./assets/maca.png");
+loadSprite("pera", "./assets/pera.png");
+loadSprite("cogumelo", "./assets/cogumelo.png");
+loadSprite("pocao", "./assets/pocao.png");
+loadSprite("bola_de_fogo", "./assets/bola_de_fogo.png");
+
+// Variáveis
+let score = 0, lives = 3, level = 1;
+let maguinho, bruxo;
+let scoreLabel, livesLabel, levelLabel;
+let fireballSpeed = 150, shootInterval = 2.5;
+let shootTimer = null;
+let fireballTimeouts = [];
+let musicaTema = null;
+let currentMushroom = null;
+let currentPotion = null;
+
+// Configuração de níveis
+const levels = [
+    {points:3, speed:150, interval:2.5, shots:1},
+    {points:7, speed:180, interval:2.2, shots:1},
+    {points:13, speed:210, interval:2.0, shots:2},
+    {points:17, speed:240, interval:1.7, shots:2},
+    {points:25, speed:270, interval:1.5, shots:3}
+];
+
+// Fundo graminha
+let grassDots = [];
+function initGrass(){
+    grassDots = [];
+    for(let i=0;i<200;i++){
+        grassDots.push({x:rand(0,width()), y:rand(0,height()), size:rand(1,3)});
+    }
+}
+function drawGrass(){
+    grassDots.forEach(dot=>{
+        add([
+            rect(dot.size,dot.size),
+            pos(dot.x,dot.y),
+            color(50+dot.size*10,150,50+dot.size*10),
+            fixed()
+        ]);
+    });
+}
+
+// Funções auxiliares
+function stopFireballs(){
+    if(shootTimer) clearInterval(shootTimer);
+    fireballTimeouts.forEach(t=>clearTimeout(t));
+    fireballTimeouts = [];
+    destroyAll("fireball");
+}
+
+function gameOverScreen(){
+    stopFireballs();
+    if(musicaTema) musicaTema.stop();
+    destroyAll();
+    add([rect(width(),height()), color(0,0,0,0.8)]);
+    add([text("GAME OVER",{size:48}), pos(width()/2,height()/3), anchor("center")]);
+    add([text("Pressione ENTER para jogar novamente",{size:24}), pos(width()/2,height()/2), anchor("center")]);
+    onKeyPress("enter", startGame);
+}
+
+function victoryScreen(){
+    stopFireballs();
+    if(musicaTema) musicaTema.stop();
+    destroyAll();
+
+    // Fundo roxo vivo
+    add([rect(width(),height()), color(150,0,255)]);
+
+    // Mensagens
+    add([text("🎉 PARABÉNS! VOCÊ VENCEU! 🎉",{size:48}), pos(width()/2,height()/3), anchor("center")]);
+    add([text("Pressione ENTER para jogar novamente",{size:24}), pos(width()/2,height()/2), anchor("center")]);
+
+    // Confetes duradouros
+    for(let i=0;i<100;i++){
+        add([
+            rect(5,5),
+            pos(rand(0,width()), rand(0,height()/2)),
+            color(rand(255),rand(255),rand(255)),
+            move(rand(-30,30), rand(50,100)),
+            lifespan(8) // confete fica 8 segundos em vez de 2
+        ]);
+    }
+
+    onKeyPress("enter", startGame);
+}
+
+
+// Função principal
+function startGame(){
+    destroyAll();
+    score = 0; lives = 3; level = 1;
+    fireballSpeed = levels[0].speed;
+    shootInterval = levels[0].interval;
+    currentMushroom = null;
+    currentPotion = null;
+
+    musicaTema = play("theme", { loop:true, volume:0.6 });
+
+    initGrass();
+    drawGrass();
+
+    // Labels
+    scoreLabel = add([text("Pontos: "+score), pos(12,12), fixed()]);
+    livesLabel = add([text("Vidas: "+lives), pos(12,36), fixed()]);
+    levelLabel = add([text("Nível: "+level), pos(12,60), fixed()]);
+
+    // Maguinho
+    maguinho = add([sprite("mago"), pos(100,100), scale(0.15), area(), anchor("center"), "player"]);
+    maguinho.onUpdate(() => {
+        let dx=0, dy=0;
+        if(isKeyDown("left")) dx=-1;
+        if(isKeyDown("right")) dx=1;
+        if(isKeyDown("up")) dy=-1;
+        if(isKeyDown("down")) dy=1;
+        maguinho.move(dx*200, dy*200);
+        maguinho.pos.x = Math.max(20, Math.min(width()-20, maguinho.pos.x));
+        maguinho.pos.y = Math.max(20, Math.min(height()-20, maguinho.pos.y));
+    });
+
+    // Spawn maçã
+    function spawnApple(){
+        const apple = add([sprite("maca"), pos(rand(50,width()-50), rand(50,height()-50)), scale(0.07), area(), anchor("center"), "apple"]);
+        apple.onCollide("player", ()=>{
+            destroy(apple);
+            score++;
+            scoreLabel.text = "Pontos: "+score;
+            play("coletar");
+            spawnApple();
+            checkLevelProgress();
+        });
+    }
+    spawnApple();
+
+    // Spawn pera
+    function spawnPear(){
+        const pear = add([sprite("pera"), pos(rand(50,width()-50), rand(50,height()-50)), scale(0.07), area(), anchor("center"), "pear"]);
+        pear.onCollide("player", ()=>{
+            destroy(pear);
+            score += 2;
+            scoreLabel.text = "Pontos: "+score;
+            play("coletar");
+        });
+    }
+
+    // Spawn poção
+    function spawnPotion(){
+        currentPotion = add([sprite("pocao"), pos(rand(50,width()-50), rand(50,height()-50)), scale(0.09), area(), anchor("center"), "potion"]);
+        currentPotion.onCollide("player", ()=>{
+            destroy(currentPotion);
+            currentPotion = null;
+            lives++;
+            livesLabel.text = "Vidas: "+lives;
+            play("coletar");
+        });
+    }
+
+    
+
+        // Spawn Cogumelo
+            let mushroomLevel3Used = false;
+            let mushroomLevel5Used = false;
+
+            function spawnMushroom(type){
+                // Verifica se já apareceu
+                if((type === "increase" && mushroomLevel3Used) || (type === "decrease" && mushroomLevel5Used)) return;
+
+                const mushroom = add([sprite("cogumelo"), pos(rand(50,width()-50), rand(50,height()-50)), scale(0.09), area(), anchor("center"), "mushroom"]);
+                
+                mushroom.onCollide("player", ()=>{
+                    destroy(mushroom);
+                    play("coletar");
+
+                    // Efeito de aumento/diminuição
+                    if(type === "increase" && !mushroomLevel3Used){
+                        maguinho.scale = vec2(0.25,0.25);
+                        mushroomLevel3Used = true;
+                    }
+                    if(type === "decrease" && !mushroomLevel5Used){
+                        maguinho.scale = vec2(0.1,0.1);
+                        mushroomLevel5Used = true;
+                    }
+
+                    // Volta ao normal após 5 segundos
+                    wait(5, ()=>{
+                        maguinho.scale = vec2(0.15,0.15);
+                    });
+                });
+
+                currentMushroom = mushroom; // mantém referência
+            }
+
+
+    // Bruxo
+    bruxo = add([sprite("bruxo"), pos(width()-100,50), scale(0.27), area(), anchor("center")]);
+    let dir = 1;
+    bruxo.onUpdate(()=>{
+        bruxo.move(0, dir*60);
+        if(bruxo.pos.y >= height()-50){ bruxo.pos.y = height()-50; dir*=-1; }
+        if(bruxo.pos.y <= 0){ bruxo.pos.y = 0; dir*=-1; }
+    });
+
+    // Fireball
+    function createFireball(x,y){
+        const f = add([sprite("bola_de_fogo"), pos(x,y), scale(0.07), area(), anchor("center"), "fireball"]);
+        play("attack");
+        f.onUpdate(()=>{ 
+            f.move(-fireballSpeed, 0); 
+            if(f.pos.x < 0) destroy(f);
+        });
+    }
+
+    function spawnFireball(){
+        const shots = levels[level-1].shots;
+        let delay = 0;
+        for(let i=0;i<shots;i++){
+            const t = setTimeout(()=>{ 
+                createFireball(bruxo.pos.x, bruxo.pos.y+10);
+                fireballTimeouts = fireballTimeouts.filter(x=>x!==t);
+            }, delay);
+            fireballTimeouts.push(t);
+            delay += 300;
+        }
+    }
+
+    function startFireballs(){ shootTimer = setInterval(spawnFireball, shootInterval*1000); }
+    function restartFireballs(){ stopFireballs(); startFireballs(); }
+    wait(1, startFireballs);
+
+    // Colisão maguinho x fireball
+    maguinho.onCollide("fireball", (f)=>{
+        destroy(f);
+        lives--;
+        livesLabel.text = "Vidas: "+lives;
+        play("hit");
+        if(lives<=0) gameOverScreen();
+    });
+
+    // Verifica progresso de nível
+    function checkLevelProgress(){
+        if(level===3 && !currentMushroom) spawnMushroom("increase");
+        if(level===5 && !currentMushroom) spawnMushroom("decrease");
+        if(level===2 && !currentPotion) spawnPotion();
+        if(level===4 && !currentPotion) spawnPotion();
+        if(level<levels.length && score>=levels[level-1].points){
+            level++;
+            levelLabel.text = "Nível: "+level;
+            fireballSpeed = levels[level-1].speed;
+            shootInterval = levels[level-1].interval;
+            restartFireballs();
+
+            if(!get("pear")[0]) spawnPear();
+        }
+
+        if(score>=levels[levels.length-1].points){
+            victoryScreen();
+        }
+    }
+
+    // Atualiza graminha
+    onUpdate(()=>{
+        grassDots.forEach(dot=>{
+            dot.y += Math.sin(dot.x)*0.2;
+            if(dot.y>height()) dot.y=0;
+        });
+    });
+}
+
+// Tela inicial
+function startScreen(){
+    add([rect(width(),height()), color(120,50,150)]);
+    const title = add([text("A Colheita do Feiticeiro",{size:32}), pos(width()/2,height()/3), anchor("center")]);
+    const startBtn = add([text("Pressione ENTER para começar",{size:24}), pos(width()/2,height()/2), anchor("center")]);
+    onKeyPress("enter", ()=>{ destroy(title); destroy(startBtn); startGame(); });
+}
+
+startScreen();
+
+</script>
+</body>
+</html>
